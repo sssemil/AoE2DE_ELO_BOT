@@ -1,5 +1,6 @@
-import os.path
 import json
+import os.path
+import signal
 from json import JSONDecodeError
 
 import requests
@@ -11,8 +12,12 @@ class Api:
     allMatches = []
     lastMatchTimestamp = 0
 
+    killNow = False
+
     def __init__(self, dataFilePath) -> None:
         super().__init__()
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
         self.dataFilePath = dataFilePath
         if os.path.isfile(self.dataFilePath):
             with open(dataFilePath, 'r') as dataFile:
@@ -23,6 +28,9 @@ class Api:
                 except JSONDecodeError:
                     print("Corrupted storage file, resetting...")
                     os.remove(self.dataFilePath)
+
+    def exit_gracefully(self, *args):
+        self.killNow = True
 
     @staticmethod
     def getMaxDateFromMatches(matches):
@@ -51,17 +59,18 @@ class Api:
         return data
 
     def getAllMatches(self):
-        while True:
+        while not self.killNow:
             matches = self.getMatches(Api.MAX_ENTRIES_PER_REQUEST, self.lastMatchTimestamp)
             if len(matches) == 0:
                 break
             minTimestamp = Api.getMaxDateFromMatches(matches)
-            self.lastMatchTimestamp = Api.getMaxDateFromMatches(matches)
+            self.lastMatchTimestamp = Api.getMaxDateFromMatches(matches) + 1
             self.allMatches += matches
-            with open(self.dataFilePath, 'w') as dataFile:
-                json.dump(self.allMatches, dataFile)
 
-            print(f"Loaded {len(self.allMatches)} entries. "
+            print(f"Loaded {len(matches)} entries. "
                   f"Min date - {minTimestamp}, max date - {self.lastMatchTimestamp}.")
+
+        with open(self.dataFilePath, 'w') as dataFile:
+            json.dump(self.allMatches, dataFile)
 
         return self.allMatches

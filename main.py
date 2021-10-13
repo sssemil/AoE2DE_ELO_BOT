@@ -1,7 +1,11 @@
 from Api import Api
 
-if __name__ == '__main__':
+
+def main():
     api = Api('all_matches.json')
     allMatches = api.getAllMatches()
-    print("Done!")
+    print(f"Done! Received {len(allMatches)} entries in total.")
 
+
+if __name__ == '__main__':
+    main()
